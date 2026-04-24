@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Coach — Gemini Sync Edition</title>
+<style>
+:root {
+  --bg: #0a0e17; --bg2: #131926; --bg3: #1a2235; --text: #e8ecf4; --text2: #8892a4;
+  --accent: #3b82f6; --green: #22c55e; --orange: #f59e0b; --red: #ef4444;
+  --purple: #a855f7; --cyan: #06b6d4; --border: #2a3548; --radius: 12px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+button { cursor:pointer; border:none; font-family:inherit; font-size:14px; border-radius:8px; padding:10px 20px; transition:all .2s; }
+input, select { font-family:inherit; font-size:14px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; outline:none; }
+
+.nav { display:flex; align-items:center; padding:12px 24px; background:var(--bg2); border-bottom:1px solid var(--border); gap:16px; }
+.nav-title { font-size:18px; font-weight:700; color:var(--accent); }
+.sync-bar { background:var(--bg3); padding:8px 24px; border-bottom:1px solid var(--border); display:flex; gap:12px; align-items:center; font-size:12px; }
+.sync-bar input { flex:1; font-size:11px; padding:4px 8px; background: rgba(0,0,0,0.2); }
+
+.screen { display:none; padding:20px; max-width:800px; margin:0 auto; }
+.screen.active { display:block; }
+.card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; }
+.card-title { font-size:15px; font-weight:600; margin-bottom:12px; }
+
+.dashboard { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.metric-big { text-align:center; padding:20px; }
+.metric-big .value { font-size:64px; font-weight:800; }
+.metric-big .label { font-size:12px; color:var(--text2); }
+.dash-full { grid-column: 1 / -1; }
+
+.coaching-strip { grid-column:1/-1; background:var(--bg3); border-radius:var(--radius); padding:16px; display:flex; align-items:center; gap:12px; border:1px solid var(--border); }
+.btn-start { background:var(--green); color:white; width:100%; padding:16px; font-weight:700; font-size:18px; }
+.btn-sync { background:var(--purple); color:white; font-size:12px; padding:6px 12px; }
+
+.sync-status { width:10px; height:10px; border-radius:50%; background:var(--red); transition: background 0.3s; }
+.sync-status.ok { background:var(--green); box-shadow: 0 0 8px var(--green); }
+
+.timeline { display:flex; height:12px; border-radius:6px; overflow:hidden; margin:10px 0; background:var(--bg); border: 1px solid var(--border); }
+.timeline-seg { height:100%; }
+
+@media(max-width:600px) { .dashboard { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="nav-title">Live Coach — Gemini Sync</span>
+  <div style="margin-left:auto; display:flex; gap:10px;">
+    <button onclick="showScreen('schema')">Schema</button>
+    <button onclick="showScreen('dashboard')">Live</button>
+  </div>
+</nav>
+
+<div class="sync-bar">
+  <div id="syncIndicator" class="sync-status"></div>
+  <span>Sync Status:</span>
+  <input type="text" id="syncUrl" readonly>
+  <button class="btn-sync" onclick="loadTrainingFromSheet()">Haal Training</button>
+</div>
+
+<div class="screen active" id="screenSchema">
+  <div class="card">
+    <div class="card-title">Huidig Trainingsschema</div>
+    <div id="schemaInfo" style="font-size:13px; color:var(--text2); margin-bottom:10px;">Klik op 'Haal Training' om de data uit Google Sheets te laden.</div>
+    <div id="timeline" class="timeline"></div>
+    <div id="blockList" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Wacht op import...</div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <div class="card-title">Instellingen</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+        <label>eFTP (W): <input type="number" id="ftp" value="352"></label>
+        <label>Max HR: <input type="number" id="maxHr" value="185"></label>
+    </div>
+  </div>
+
+  <button class="btn-start" onclick="startTraining()">START TRAINING</button>
+</div>
+
+<div class="screen" id="screenDashboard">
+    <div class="dashboard">
+        <div class="card dash-full" style="text-align:center;">
+            <div id="dashBlockName" style="font-size:24px; font-weight:700;">--</div>
+            <div id="dashTimer" style="font-size:48px; font-weight:800; color:var(--accent);">00:00</div>
+        </div>
+
+        <div class="card metric-big">
+            <div class="label">POWER (W)</div>
+            <div class="value" id="dashWatt">0</div>
+            <div id="dashWattTarget" style="font-size:14px; color:var(--text2);">Target: --</div>
+        </div>
+
+        <div class="card metric-big">
+            <div class="label">HARTSLAG (BPM)</div>
+            <div class="value" id="dashHR" style="color:var(--red);">0</div>
+            <div id="dashHRTarget" style="font-size:14px; color:var(--text2);">Target: --</div>
+        </div>
+
+        <div class="coaching-strip" id="coachingStrip">
+            <span style="font-size:24px;">🚴‍♂️</span>
+            <span id="coachingMsg">Klaar om te starten...</span>
+        </div>
+
+        <div class="card dash-full">
+            <button style="background:var(--accent); color:white; width:100%;" onclick="connectSensors()">Verbind Bluetooth Sensoren</button>
+        </div>
+        
+        <button class="dash-full" style="background:var(--red); color:white;" onclick="stopTraining()">STOP TRAINING</button>
+    </div>
+</div>
+
+<script>
+// ===== JOUW GEKOPIEERDE URL =====
+const SYNC_URL = "https://script.google.com/macros/s/AKfycbx76fSo19mT0gvkJzabgtzAoxtsY7XVcd_fIqxXTnBib-osExY6wLyLH9EeRHtv8GdS5A/exec";
+
+const state = {
+    running: false,
+    currentBlock: 0,
+    blockElapsed: 0,
+    ftp: 352,
+    maxHr: 185,
+    blocks: [],
+    currentWatt: 0,
+    currentHR: 0,
+    currentCadence: 0
+};
+
+document.getElementById('syncUrl').value = SYNC_URL;
+
+// 1. Haal training uit Google Sheets
+async function loadTrainingFromSheet() {
+    try {
+        const response = await fetch(SYNC_URL);
+        const rawData = await response.json();
+        
+        // Formaat filteren (eerste rij overslaan)
+        const newBlocks = rawData.slice(1).map(row => ({
+            name: row[0] || 'Blok',
+            dur: parseInt(row[1]) || 60,
+            wattLo: parseInt(row[2]) || 100,
+            wattHi: parseInt(row[3]) || 150,
+            zone: row[4] || 2,
+            type: (row[5] || 'work').toLowerCase()
+        }));
+
+        state.blocks = newBlocks;
+        renderSchema();
+        document.getElementById('schemaInfo').textContent = `Succes: ${newBlocks.length} blokken geladen.`;
+        alert("Training geladen!");
+    } catch (e) {
+        alert("Fout bij ophalen Sheet. Staat er data in 'Training_Schema'?");
+    }
+}
+
+// 2. Push live data naar de Sheet
+async function syncLiveData() {
+    if (!state.running) return;
+
+    const block = state.blocks[state.currentBlock];
+    const payload = {
+        block: block ? block.name : 'Vrij',
+        actualWatt: state.currentWatt,
+        actualHR: state.currentHR,
+        targetWatt: block ? `${block.wattLo}-${block.wattHi}` : 'N/A',
+        cadence: state.currentCadence,
+        timestamp: new Date().toLocaleTimeString('nl-NL')
+    };
+
+    try {
+        await fetch(SYNC_URL, {
+            method: 'POST',
+            mode: 'no-cors', // Vereist voor Google Apps Script
+            body: JSON.stringify(payload)
+        });
+        
+        // Visuele feedback
+        const ind = document.getElementById('syncIndicator');
+        ind.classList.add('ok');
+        setTimeout(() => ind.classList.remove('ok'), 2000);
+    } catch (e) { console.log("Sync error", e); }
+}
+
+function renderSchema() {
+    const list = document.getElementById('blockList');
+    const tl = document.getElementById('timeline');
+    const totalDur = state.blocks.reduce((a,b) => a + b.dur, 0);
+    
+    list.innerHTML = state.blocks.map(b => `
+        <div style="font-size:12px; display:flex; justify-content:space-between; background:var(--bg3); padding:10px; border-radius:6px; border-left: 4px solid ${getColor(b.type)}">
+            <span>${b.name} (${Math.floor(b.dur/60)}m ${b.dur%60}s)</span>
+            <span style="font-weight:700;">${b.wattLo}-${b.wattHi}W</span>
+        </div>
+    `).join('');
+
+    tl.innerHTML = state.blocks.map(b => {
+        const pct = (b.dur / totalDur) * 100;
+        return `<div class="timeline-seg" style="width:${pct}%; background:${getColor(b.type)}"></div>`;
+    }).join('');
+}
+
+function getColor(type) {
+    if (type.includes('warm')) return 'var(--orange)';
+    if (type.includes('interval') || type.includes('work')) return 'var(--red)';
+    return 'var(--green)';
+}
+
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen' + id.charAt(0).toUpperCase() + id.slice(1)).classList.add('active');
+}
+
+function startTraining() {
+    if (state.blocks.length === 0) return alert("Laad eerst een training!");
+    state.running = true;
+    state.currentBlock = 0;
+    state.blockElapsed = 0;
+    showScreen('dashboard');
+    
+    setInterval(tick, 1000);
+    setInterval(syncLiveData, 30000); // Elke 30 sec live sync naar Gemini
+}
+
+function tick() {
+    if (!state.running) return;
+    
+    state.blockElapsed++;
+    const block = state.blocks[state.currentBlock];
+    
+    if (state.blockElapsed >= block.dur) {
+        state.currentBlock++;
+        state.blockElapsed = 0;
+        if (state.currentBlock >= state.blocks.length) {
+            stopTraining();
+            return;
+        }
+        speak(`Nieuw blok: ${state.blocks[state.currentBlock].name}`);
+    }
+    updateUI();
+}
+
+function updateUI() {
+    const block = state.blocks[state.currentBlock];
+    const rem = block.dur - state.blockElapsed;
+    
+    document.getElementById('dashBlockName').textContent = block.name;
+    document.getElementById('dashTimer').textContent = `${Math.floor(rem/60)}:${String(rem%60).padStart(2,'0')}`;
+    document.getElementById('dashWatt').textContent = state.currentWatt;
+    document.getElementById('dashHR').textContent = state.currentHR;
+    document.getElementById('dashWattTarget').textContent = `Target: ${block.wattLo}-${block.wattHi}W`;
+    
+    // Kleur indicatie voor Wattage
+    const wattVal = document.getElementById('dashWatt');
+    if (state.currentWatt < block.wattLo) wattVal.style.color = 'var(--cyan)';
+    else if (state.currentWatt > block.wattHi) wattVal.style.color = 'var(--red)';
+    else wattVal.style.color = 'var(--green)';
+}
+
+function speak(text) {
+    const msg = new SpeechSynthesisUtterance(text);
+    msg.lang = 'nl-NL';
+    window.speechSynthesis.speak(msg);
+}
+
+async function connectSensors() {
+    try {
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ services: ['heart_rate'] }, { services: ['cycling_power'] }]
+        });
+        alert("Bluetooth gekoppeld met " + device.name);
+        // Simulatie voor demo, echte sensoren vullen state.currentWatt/HR
+        state.btConnected = true;
+    } catch(e) {
+        alert("Demo-modus geactiveerd (Bluetooth niet beschikbaar)");
+        // Simulatie data
+        setInterval(() => {
+            if(state.running) {
+                state.currentWatt = 250 + Math.floor(Math.random()*20);
+                state.currentHR = 145 + Math.floor(Math.random()*5);
+            }
+        }, 2000);
+    }
+}
+
+function stopTraining() {
+    state.running = false;
+    alert("Training voltooid!");
+    showScreen('schema');
+}
+</script>
+</body>
+</html>
