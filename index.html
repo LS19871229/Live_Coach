@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Coach — Gemini Sync Edition</title>
+<title>Live Coach 2.0 — Gemini Sync</title>
 <style>
 :root {
   --bg: #0a0e17; --bg2: #131926; --bg3: #1a2235; --text: #e8ecf4; --text2: #8892a4;
@@ -11,35 +11,32 @@
   --purple: #a855f7; --cyan: #06b6d4; --border: #2a3548; --radius: 12px;
 }
 * { margin:0; padding:0; box-sizing:border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x: hidden; }
 button { cursor:pointer; border:none; font-family:inherit; font-size:14px; border-radius:8px; padding:10px 20px; transition:all .2s; }
-input, select { font-family:inherit; font-size:14px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; outline:none; }
+input { font-family:inherit; font-size:14px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px 12px; outline:none; }
 
 .nav { display:flex; align-items:center; padding:12px 24px; background:var(--bg2); border-bottom:1px solid var(--border); gap:16px; }
 .nav-title { font-size:18px; font-weight:700; color:var(--accent); }
 .sync-bar { background:var(--bg3); padding:8px 24px; border-bottom:1px solid var(--border); display:flex; gap:12px; align-items:center; font-size:12px; }
 .sync-bar input { flex:1; font-size:11px; padding:4px 8px; background: rgba(0,0,0,0.2); }
 
-.screen { display:none; padding:20px; max-width:800px; margin:0 auto; }
+.screen { display:none; padding:15px; max-width:800px; margin:0 auto; }
 .screen.active { display:block; }
-.card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; }
-.card-title { font-size:15px; font-weight:600; margin-bottom:12px; }
+.card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; position: relative; }
+.card-title { font-size:14px; font-weight:600; color:var(--text2); text-transform: uppercase; margin-bottom:12px; }
 
 .dashboard { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-.metric-big { text-align:center; padding:20px; }
-.metric-big .value { font-size:64px; font-weight:800; }
-.metric-big .label { font-size:12px; color:var(--text2); }
+.metric-big { text-align:center; padding:20px; min-height: 150px; display: flex; flex-direction: column; justify-content: center; }
+.metric-big .value { font-size:60px; font-weight:800; line-height: 1; margin: 10px 0; transition: color 0.3s; }
+.metric-big .label { font-size:11px; color:var(--text2); letter-spacing: 1px; text-transform: uppercase; }
 .dash-full { grid-column: 1 / -1; }
 
-.coaching-strip { grid-column:1/-1; background:var(--bg3); border-radius:var(--radius); padding:16px; display:flex; align-items:center; gap:12px; border:1px solid var(--border); }
-.btn-start { background:var(--green); color:white; width:100%; padding:16px; font-weight:700; font-size:18px; }
-.btn-sync { background:var(--purple); color:white; font-size:12px; padding:6px 12px; }
-
+.status-sub { font-size: 13px; font-weight: 700; margin-top: 5px; }
 .sync-status { width:10px; height:10px; border-radius:50%; background:var(--red); transition: background 0.3s; }
 .sync-status.ok { background:var(--green); box-shadow: 0 0 8px var(--green); }
 
-.timeline { display:flex; height:12px; border-radius:6px; overflow:hidden; margin:10px 0; background:var(--bg); border: 1px solid var(--border); }
-.timeline-seg { height:100%; }
+.timeline { display:flex; height:12px; border-radius:6px; overflow:hidden; margin:15px 0; background:var(--bg); border: 1px solid var(--border); }
+.timeline-seg { height:100%; transition: width 0.3s; }
 
 @media(max-width:600px) { .dashboard { grid-template-columns: 1fr; } }
 </style>
@@ -47,77 +44,76 @@ input, select { font-family:inherit; font-size:14px; background:var(--bg); color
 <body>
 
 <nav class="nav">
-  <span class="nav-title">Live Coach — Gemini Sync</span>
+  <span class="nav-title">Live Coach 2.0</span>
   <div style="margin-left:auto; display:flex; gap:10px;">
-    <button onclick="showScreen('schema')">Schema</button>
-    <button onclick="showScreen('dashboard')">Live</button>
+    <button onclick="showScreen('schema')" id="btnSchema">Schema</button>
+    <button onclick="showScreen('dashboard')" id="btnDash">Live</button>
   </div>
 </nav>
 
 <div class="sync-bar">
   <div id="syncIndicator" class="sync-status"></div>
-  <span>Sync Status:</span>
-  <input type="text" id="syncUrl" readonly>
-  <button class="btn-sync" onclick="loadTrainingFromSheet()">Haal Training</button>
+  <input type="text" id="syncUrl" placeholder="Plak Google Apps Script URL...">
+  <button style="background:var(--purple); color:white; font-size:11px;" onclick="loadTrainingFromSheet()">Haal Training</button>
 </div>
 
 <div class="screen active" id="screenSchema">
   <div class="card">
-    <div class="card-title">Huidig Trainingsschema</div>
-    <div id="schemaInfo" style="font-size:13px; color:var(--text2); margin-bottom:10px;">Klik op 'Haal Training' om de data uit Google Sheets te laden.</div>
+    <div class="card-title">Training Overzicht</div>
     <div id="timeline" class="timeline"></div>
-    <div id="blockList" style="display:flex; flex-direction:column; gap:8px;">
-        <div style="font-size:12px; color:var(--text2); text-align:center; padding:20px;">Wacht op import...</div>
-    </div>
+    <div id="blockList" style="display:flex; flex-direction:column; gap:8px; max-height: 300px; overflow-y: auto;"></div>
   </div>
   
   <div class="card">
-    <div class="card-title">Instellingen</div>
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-        <label>eFTP (W): <input type="number" id="ftp" value="352"></label>
-        <label>Max HR: <input type="number" id="maxHr" value="185"></label>
+    <div class="card-title">Mijn Profiel</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:15px;">
+        <div>
+            <label style="font-size:11px; color:var(--text2);">eFTP (WATT)</label>
+            <input type="number" id="ftp" value="352" style="width:100%; margin-top:5px;">
+        </div>
+        <div>
+            <label style="font-size:11px; color:var(--text2);">MAX HARTSLAG</label>
+            <input type="number" id="maxHr" value="185" style="width:100%; margin-top:5px;">
+        </div>
     </div>
   </div>
 
-  <button class="btn-start" onclick="startTraining()">START TRAINING</button>
+  <button style="background:var(--green); color:white; width:100%; padding:20px; font-weight:800; font-size:20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);" onclick="startTraining()">START TRAINING</button>
 </div>
 
 <div class="screen" id="screenDashboard">
     <div class="dashboard">
-        <div class="card dash-full" style="text-align:center;">
-            <div id="dashBlockName" style="font-size:24px; font-weight:700;">--</div>
-            <div id="dashTimer" style="font-size:48px; font-weight:800; color:var(--accent);">00:00</div>
+        <div class="card dash-full" style="text-align:center; padding: 25px;">
+            <div id="dashBlockName" style="font-size:22px; font-weight:700; color:var(--text2);">--</div>
+            <div id="dashTimer" style="font-size:72px; font-weight:900; color:var(--accent); font-variant-numeric: tabular-nums;">00:00</div>
         </div>
 
         <div class="card metric-big">
             <div class="label">POWER (W)</div>
             <div class="value" id="dashWatt">0</div>
-            <div id="dashWattTarget" style="font-size:14px; color:var(--text2);">Target: --</div>
+            <div id="dashWattTarget" style="font-size:14px; font-weight:600; color:var(--text2);">Target: --</div>
         </div>
 
         <div class="card metric-big">
             <div class="label">HARTSLAG (BPM)</div>
-            <div class="value" id="dashHR" style="color:var(--red);">0</div>
-            <div id="dashHRTarget" style="font-size:14px; color:var(--text2);">Target: --</div>
+            <div class="value" id="dashHR">0</div>
+            <div id="hrStatus" class="status-sub">STATUS: --</div>
         </div>
 
-        <div class="coaching-strip" id="coachingStrip">
-            <span style="font-size:24px;">🚴‍♂️</span>
-            <span id="coachingMsg">Klaar om te starten...</span>
+        <div id="recoveryCard" class="card dash-full" style="display:none; text-align:center; border: 2px solid var(--cyan); background: rgba(6, 182, 212, 0.05);">
+            <div class="label">RECOVERY TREND</div>
+            <div id="recoveryTrend" style="font-size:22px; font-weight:800; margin-top:10px;">ANALYSEREN...</div>
         </div>
 
         <div class="card dash-full">
-            <button style="background:var(--accent); color:white; width:100%;" onclick="connectSensors()">Verbind Bluetooth Sensoren</button>
+            <button style="background:var(--accent); color:white; width:100%; font-weight:700;" onclick="connectSensors()">VERBIND BLUETOOTH SENSOREN</button>
         </div>
         
-        <button class="dash-full" style="background:var(--red); color:white;" onclick="stopTraining()">STOP TRAINING</button>
+        <button class="dash-full" style="background:var(--bg3); color:var(--red); font-weight:700; border: 1px solid var(--red);" onclick="stopTraining()">STOP TRAINING</button>
     </div>
 </div>
 
 <script>
-// ===== JOUW GEKOPIEERDE URL =====
-const SYNC_URL = "https://script.google.com/macros/s/AKfycbx76fSo19mT0gvkJzabgtzAoxtsY7XVcd_fIqxXTnBib-osExY6wLyLH9EeRHtv8GdS5A/exec";
-
 const state = {
     running: false,
     currentBlock: 0,
@@ -127,85 +123,74 @@ const state = {
     blocks: [],
     currentWatt: 0,
     currentHR: 0,
-    currentCadence: 0
+    currentCadence: 0,
+    lastIntervalHR: 0,
+    wakeLock: null,
+    syncUrl: localStorage.getItem('syncUrl') || ''
 };
 
-document.getElementById('syncUrl').value = SYNC_URL;
+if (state.syncUrl) document.getElementById('syncUrl').value = state.syncUrl;
 
-// 1. Haal training uit Google Sheets
-async function loadTrainingFromSheet() {
+// SCHERM AANHOUDEN (WAKE LOCK)
+async function requestWakeLock() {
     try {
-        const response = await fetch(SYNC_URL);
-        const rawData = await response.json();
-        
-        // Formaat filteren (eerste rij overslaan)
-        const newBlocks = rawData.slice(1).map(row => ({
-            name: row[0] || 'Blok',
-            dur: parseInt(row[1]) || 60,
-            wattLo: parseInt(row[2]) || 100,
-            wattHi: parseInt(row[3]) || 150,
-            zone: row[4] || 2,
-            type: (row[5] || 'work').toLowerCase()
-        }));
-
-        state.blocks = newBlocks;
-        renderSchema();
-        document.getElementById('schemaInfo').textContent = `Succes: ${newBlocks.length} blokken geladen.`;
-        alert("Training geladen!");
-    } catch (e) {
-        alert("Fout bij ophalen Sheet. Staat er data in 'Training_Schema'?");
-    }
+        if ('wakeLock' in navigator) {
+            state.wakeLock = await navigator.wakeLock.request('screen');
+            console.log("Wake Lock actief: Scherm blijft aan.");
+        }
+    } catch (err) { console.error(`${err.name}, ${err.message}`); }
 }
 
-// 2. Push live data naar de Sheet
-async function syncLiveData() {
-    if (!state.running) return;
-
-    const block = state.blocks[state.currentBlock];
-    const payload = {
-        block: block ? block.name : 'Vrij',
-        actualWatt: state.currentWatt,
-        actualHR: state.currentHR,
-        targetWatt: block ? `${block.wattLo}-${block.wattHi}` : 'N/A',
-        cadence: state.currentCadence,
-        timestamp: new Date().toLocaleTimeString('nl-NL')
-    };
+async function loadTrainingFromSheet() {
+    const url = document.getElementById('syncUrl').value;
+    if (!url) return alert("Plak eerst je Apps Script URL");
+    state.syncUrl = url;
+    localStorage.setItem('syncUrl', url);
 
     try {
-        await fetch(SYNC_URL, {
-            method: 'POST',
-            mode: 'no-cors', // Vereist voor Google Apps Script
-            body: JSON.stringify(payload)
-        });
-        
-        // Visuele feedback
+        const response = await fetch(url);
+        const data = await response.json();
+        // Skip header row
+        state.blocks = data.slice(1).map(row => ({
+            name: row[0], dur: parseInt(row[1]), wattLo: parseInt(row[2]),
+            wattHi: parseInt(row[3]), zone: row[4], type: row[5].toLowerCase()
+        }));
+        renderSchema();
+        alert("Training geladen! Je kunt starten.");
+    } catch (e) { alert("Fout: Kon training niet ophalen. Check de Sheet."); }
+}
+
+async function syncToGoogle() {
+    if (!state.running || !state.syncUrl) return;
+    const block = state.blocks[state.currentBlock];
+    const payload = {
+        block: block.name, actualWatt: state.currentWatt, actualHR: state.currentHR,
+        targetWatt: `${block.wattLo}-${block.wattHi}`, cadence: state.currentCadence,
+        timestamp: new Date().toLocaleTimeString()
+    };
+    try {
+        await fetch(state.syncUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify(payload) });
         const ind = document.getElementById('syncIndicator');
         ind.classList.add('ok');
-        setTimeout(() => ind.classList.remove('ok'), 2000);
-    } catch (e) { console.log("Sync error", e); }
+        setTimeout(() => ind.classList.remove('ok'), 1500);
+    } catch (e) {}
 }
 
 function renderSchema() {
     const list = document.getElementById('blockList');
     const tl = document.getElementById('timeline');
-    const totalDur = state.blocks.reduce((a,b) => a + b.dur, 0);
-    
+    const total = state.blocks.reduce((a,b) => a + b.dur, 0);
     list.innerHTML = state.blocks.map(b => `
-        <div style="font-size:12px; display:flex; justify-content:space-between; background:var(--bg3); padding:10px; border-radius:6px; border-left: 4px solid ${getColor(b.type)}">
-            <span>${b.name} (${Math.floor(b.dur/60)}m ${b.dur%60}s)</span>
-            <span style="font-weight:700;">${b.wattLo}-${b.wattHi}W</span>
-        </div>
-    `).join('');
-
-    tl.innerHTML = state.blocks.map(b => {
-        const pct = (b.dur / totalDur) * 100;
-        return `<div class="timeline-seg" style="width:${pct}%; background:${getColor(b.type)}"></div>`;
-    }).join('');
+        <div style="font-size:12px; display:flex; justify-content:space-between; background:var(--bg3); padding:12px; border-radius:8px; border-left: 4px solid ${getColor(b.type)};">
+            <span style="font-weight:600;">${b.name}</span>
+            <span>${Math.floor(b.dur/60)} min — <span style="color:var(--accent); font-weight:700;">${b.wattLo}-${b.wattHi}W</span></span>
+        </div>`).join('');
+    tl.innerHTML = state.blocks.map(b => `<div class="timeline-seg" style="width:${(b.dur/total)*100}%; background:${getColor(b.type)}"></div>`).join('');
 }
 
 function getColor(type) {
     if (type.includes('warm')) return 'var(--orange)';
-    if (type.includes('interval') || type.includes('work')) return 'var(--red)';
+    if (type.includes('work') || type.includes('interval')) return 'var(--red)';
     return 'var(--green)';
 }
 
@@ -215,30 +200,33 @@ function showScreen(id) {
 }
 
 function startTraining() {
-    if (state.blocks.length === 0) return alert("Laad eerst een training!");
+    if (state.blocks.length === 0) return alert("Laad eerst een training via de 'Haal Training' knop.");
+    
+    // Scherm aanhouden
+    requestWakeLock();
+    
+    state.ftp = parseInt(document.getElementById('ftp').value);
+    state.maxHr = parseInt(document.getElementById('maxHr').value);
     state.running = true;
-    state.currentBlock = 0;
-    state.blockElapsed = 0;
     showScreen('dashboard');
     
+    // Start timers
     setInterval(tick, 1000);
-    setInterval(syncLiveData, 30000); // Elke 30 sec live sync naar Gemini
+    setInterval(syncToGoogle, 30000); // Sync elke 30 sec
 }
 
 function tick() {
     if (!state.running) return;
-    
     state.blockElapsed++;
     const block = state.blocks[state.currentBlock];
     
+    // Blok wissel
     if (state.blockElapsed >= block.dur) {
+        if (block.type !== 'recovery') state.lastIntervalHR = state.currentHR;
         state.currentBlock++;
         state.blockElapsed = 0;
-        if (state.currentBlock >= state.blocks.length) {
-            stopTraining();
-            return;
-        }
-        speak(`Nieuw blok: ${state.blocks[state.currentBlock].name}`);
+        if (state.currentBlock >= state.blocks.length) return stopTraining();
+        speak(`Volgend blok: ${state.blocks[state.currentBlock].name}`);
     }
     updateUI();
 }
@@ -249,48 +237,99 @@ function updateUI() {
     
     document.getElementById('dashBlockName').textContent = block.name;
     document.getElementById('dashTimer').textContent = `${Math.floor(rem/60)}:${String(rem%60).padStart(2,'0')}`;
-    document.getElementById('dashWatt').textContent = state.currentWatt;
-    document.getElementById('dashHR').textContent = state.currentHR;
+
+    // 1. POWER KLEUR FEEDBACK
+    const wEl = document.getElementById('dashWatt');
+    wEl.textContent = state.currentWatt;
     document.getElementById('dashWattTarget').textContent = `Target: ${block.wattLo}-${block.wattHi}W`;
     
-    // Kleur indicatie voor Wattage
-    const wattVal = document.getElementById('dashWatt');
-    if (state.currentWatt < block.wattLo) wattVal.style.color = 'var(--cyan)';
-    else if (state.currentWatt > block.wattHi) wattVal.style.color = 'var(--red)';
-    else wattVal.style.color = 'var(--green)';
+    if (state.currentWatt >= block.wattLo && state.currentWatt <= block.wattHi) {
+        wEl.style.color = "var(--green)";
+    } else {
+        wEl.style.color = "var(--red)";
+    }
+
+    // 2. HR VOORSPELLING (Beter/Slechter)
+    const hrEl = document.getElementById('dashHR');
+    const hrStatus = document.getElementById('hrStatus');
+    hrEl.textContent = state.currentHR;
+    
+    // We gebruiken een simpele verhouding: Wattage t.o.v. FTP vs HR t.o.v. MaxHR
+    const expectedHR = (state.currentWatt / state.ftp) * state.maxHr;
+
+    if (state.currentHR < (expectedHR - 8)) {
+        hrStatus.textContent = "STATUS: BETER (EFFICIËNT)";
+        hrStatus.style.color = "var(--cyan)";
+        hrEl.style.color = "var(--cyan)";
+    } else if (state.currentHR > (expectedHR + 8)) {
+        hrStatus.textContent = "STATUS: SLECHTER (VERMOEID)";
+        hrStatus.style.color = "var(--red)";
+        hrEl.style.color = "var(--red)";
+    } else {
+        hrStatus.textContent = "STATUS: NORMAAL";
+        hrStatus.style.color = "var(--text2)";
+        hrEl.style.color = "var(--text)";
+    }
+
+    // 3. RECOVERY ANALYSE (Alleen in rustblokken)
+    const recCard = document.getElementById('recoveryCard');
+    if (block.type === 'recovery') {
+        recCard.style.display = "block";
+        const drop = state.lastIntervalHR - state.currentHR;
+        const trend = document.getElementById('recoveryTrend');
+        
+        if (state.blockElapsed > 10) {
+            if (drop > 25) { 
+                trend.textContent = "HERSTEL: ZEER SNEL"; 
+                trend.style.color = "var(--green)"; 
+            } else if (drop > 15) { 
+                trend.textContent = "HERSTEL: NORMAAL"; 
+                trend.style.color = "var(--orange)"; 
+            } else { 
+                trend.textContent = "HERSTEL: TRAAG"; 
+                trend.style.color = "var(--red)"; 
+            }
+        }
+    } else { 
+        recCard.style.display = "none"; 
+    }
 }
 
-function speak(text) {
-    const msg = new SpeechSynthesisUtterance(text);
-    msg.lang = 'nl-NL';
-    window.speechSynthesis.speak(msg);
+function speak(t) {
+    const m = new SpeechSynthesisUtterance(t); 
+    m.lang = 'nl-NL'; 
+    window.speechSynthesis.speak(m);
 }
 
 async function connectSensors() {
     try {
-        const device = await navigator.bluetooth.requestDevice({
-            filters: [{ services: ['heart_rate'] }, { services: ['cycling_power'] }]
+        // Bluetooth koppelen
+        await navigator.bluetooth.requestDevice({ 
+            filters: [{services: ['heart_rate']}, {services: ['cycling_power']}] 
         });
-        alert("Bluetooth gekoppeld met " + device.name);
-        // Simulatie voor demo, echte sensoren vullen state.currentWatt/HR
-        state.btConnected = true;
     } catch(e) {
-        alert("Demo-modus geactiveerd (Bluetooth niet beschikbaar)");
-        // Simulatie data
+        alert("Geen sensoren gevonden. Demo-modus gestart.");
+        // Demo data simulator
         setInterval(() => {
-            if(state.running) {
-                state.currentWatt = 250 + Math.floor(Math.random()*20);
-                state.currentHR = 145 + Math.floor(Math.random()*5);
-            }
+            if(!state.running) return;
+            const b = state.blocks[state.currentBlock];
+            state.currentWatt = b.wattLo + Math.floor(Math.random()*15);
+            state.currentHR = 135 + Math.floor(Math.random()*15);
         }, 2000);
     }
 }
 
 function stopTraining() {
     state.running = false;
-    alert("Training voltooid!");
+    if (state.wakeLock) {
+        state.wakeLock.release().then(() => { state.wakeLock = null; });
+    }
+    alert("Training afgerond!");
     showScreen('schema');
 }
+
+// Init
+renderSchema();
 </script>
 </body>
 </html>
